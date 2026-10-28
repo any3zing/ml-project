@@ -12,3 +12,6 @@ models/*
 
 .pytest_cache/
 .DS_Store
+
+.pytest_cache/
+.DS_Store

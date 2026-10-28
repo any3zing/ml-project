@@ -6,6 +6,9 @@ MAX_TEXT_LENGTH = 10_000
 class InputValidationError(ValueError):
     """Контролируемая ошибка входных данных."""
 
+class PredictionUnavailableError(ValueError):
+    """Недостаточно признаков для классификации текста."""
+
 
 def validate_input(payload, *, max_text_length=MAX_TEXT_LENGTH):
     """Проверяет структуру и возвращает исходный текст."""
@@ -44,12 +47,20 @@ def validate_input(payload, *, max_text_length=MAX_TEXT_LENGTH):
 
 
 def predict(payload, pipeline, *, max_text_length=MAX_TEXT_LENGTH):
-    """Проверяет вход, применяет предобработку и возвращает класс."""
+    """Проверяет вход, преобразует текст и возвращает класс."""
     text = validate_input(
         payload,
         max_text_length=max_text_length,
     )
 
-    prediction = pipeline.predict([text])
+    features = pipeline.named_steps["tfidf"].transform([text])
+
+    if features.nnz == 0:
+        raise PredictionUnavailableError(
+            "Классификация невозможна: текст не содержит "
+            "признаков из словаря модели."
+        )
+
+    prediction = pipeline.named_steps["classifier"].predict(features)
 
     return {"label": int(prediction[0])}
