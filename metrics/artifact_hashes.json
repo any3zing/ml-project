@@ -1,0 +1,10 @@
+{
+  "model": {
+    "file": "models/baseline.joblib",
+    "sha256": "6a6f02a2618e917a896c45fda8db868129122e459f422d9383bba67eb7df6e5c"
+  },
+  "data": {
+    "file": "data/dataset.csv",
+    "sha256": "33f686bc2167c5d0c86c8033541d70792d5f46cf83aaf32b653c2c8681e2af97"
+  }
+}
