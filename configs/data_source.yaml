@@ -1,0 +1,31 @@
+# Источник и ожидаемая версия данных проекта.
+# Изменять только вручную и осознанно: любая правка меняет версию данных.
+
+dataset:
+  name: neuralchemy/Prompt-injection-dataset
+  # Зафиксированный коммит репозитория датасета на Hugging Face.
+  revision: 7d70432dfcf47a821612cbf9d34e9d9e3ad20e75
+  config: core
+  license: apache-2.0
+  base_url: https://huggingface.co/datasets
+  # Порядок важен: части склеиваются строго в этом порядке.
+  files:
+    - path: core/train-00000-of-00001.parquet
+      sha256: c0724f8e00eebb65c001be9ba94291d1608e5da0374012e53dfd4077c5f92558
+    - path: core/validation-00000-of-00001.parquet
+      sha256: bbd417bfd0df1553dd769e814a0b62ca58ad5b1d08d153c90f66937a4af74deb
+    - path: core/test-00000-of-00001.parquet
+      sha256: fb5432035fdd8453d61f6593bfe78ee2970403c5ea59959b642a6708e2bef670
+  # Итоговый CSV (совпадает с хэшем из ЛР1–ЛР2).
+  output: data/dataset.csv
+  output_sha256: 33f686bc2167c5d0c86c8033541d70792d5f46cf83aaf32b653c2c8681e2af97
+  rows: 6274
+  # Ограничение размера одного скачиваемого файла, байт.
+  max_file_bytes: 20000000
+
+split:
+  seed: 42
+  test_fraction: 0.2
+  stratify: [source, label]
+  expected_train_rows: 5019
+  expected_test_rows: 1255

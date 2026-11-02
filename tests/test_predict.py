@@ -1,21 +1,22 @@
+import json
 from pathlib import Path
 
-import joblib
 import pytest
 
+from src.artifacts import load_model
 from src.predict import InputValidationError, predict
 
-
-MODEL_PATH = (
-    Path(__file__).resolve().parents[1]
-    / "models"
-    / "baseline.joblib"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+BASELINE = json.loads(
+    (PROJECT_ROOT / "metrics" / "baseline.json").read_text(encoding="utf-8")
 )
+MODEL_PATH = PROJECT_ROOT / BASELINE["artifact"]["path"]
 
 
 @pytest.fixture(scope="session")
 def pipeline():
-    return joblib.load(MODEL_PATH)
+    # Модель загружается только при совпадении SHA256 с baseline.json.
+    return load_model(MODEL_PATH, expected_sha256=BASELINE["artifact"]["sha256"])
 
 
 def test_wrong_input_type_is_rejected():
@@ -55,6 +56,7 @@ def test_text_above_limit_is_rejected():
 
 
 def test_valid_input_returns_prediction(pipeline):
+    # Будет переписан на этапе 2 ЛР3: сейчас сравнивает код сам с собой.
     text = "Hello world"
     expected_label = int(pipeline.predict([text])[0])
 

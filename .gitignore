@@ -1,17 +1,22 @@
+# Окружение и кэши
 .venv/
 __pycache__/
 *.py[cod]
 .ipynb_checkpoints/
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+
+# Секреты
 .env
 .env.*
 !.env.example
+
+# Данные и модели (получаются командами из README)
 data/*
 !data/.gitkeep
 models/*
 !models/.gitkeep
 
-.pytest_cache/
-.DS_Store
-
-.pytest_cache/
-.DS_Store
+# Отчёты запусков
+reports/
