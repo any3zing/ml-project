@@ -1,0 +1,9 @@
+# Политика model quality gate (пункт 6 ТЗ)
+
+baseline: metrics/baseline.json   # baseline ЛР2; gate его только читает
+metric: f1_macro                  # одна метрика, больше — лучше
+max_relative_drop: 0.05           # candidate >= baseline * 0.95
+
+# Совместимость: кандидат оценён на тех же данных, что и baseline.
+# В baseline.json хэша данных нет, поэтому он зафиксирован здесь.
+data_sha256: 33f686bc2167c5d0c86c8033541d70792d5f46cf83aaf32b653c2c8681e2af97
