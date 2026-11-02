@@ -22,9 +22,9 @@ def build_pipeline(seed=42, **vectorizer_overrides):
     ])
 
 
-def train_model(X_train, y_train, seed=42, **vectorizer_overrides):
+def train_model(texts, labels, seed=42, **vectorizer_overrides):
     """Обучает Pipeline; возвращает (pipeline, время обучения в секундах)."""
     pipeline = build_pipeline(seed, **vectorizer_overrides)
     start = perf_counter()
-    pipeline.fit(X_train, y_train)
+    pipeline.fit(texts, labels)
     return pipeline, perf_counter() - start

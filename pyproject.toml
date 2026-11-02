@@ -1,0 +1,19 @@
+[tool.ruff]
+target-version = "py314"
+line-length = 88
+
+[tool.ruff.lint]
+# E, W — стиль (PEP 8); F — ошибки (неиспользуемые импорты, неопределённые имена);
+# I — порядок импортов; B — типичные ошибки (bugbear); UP — устаревший синтаксис;
+# S — проверки безопасности (flake8-bandit); N — именование; SIM — упрощения.
+select = ["E", "W", "F", "I", "B", "UP", "S", "N", "SIM"]
+
+[tool.ruff.lint.isort]
+# пакет проекта, чтобы импорты src.* считались своими, а не сторонними
+known-first-party = ["src"]
+
+[tool.ruff.lint.per-file-ignores]
+# S101 (assert): в pytest assert — штатный механизм проверки.
+# В src/ правило действует: там assert запрещён, т.к. отключается флагом python -O.
+"tests/*" = ["S101"]
+
