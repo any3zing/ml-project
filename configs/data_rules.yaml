@@ -1,0 +1,22 @@
+# Правила data quality gate (пункт 5 ТЗ).
+# Gate запускается до обучения и оценки; любое нарушение -> код 1.
+
+dataset:
+  path: data/dataset.csv
+  # Контрольная выборка неизменяема; хэш совпадает с data_source.yaml
+  sha256: 33f686bc2167c5d0c86c8033541d70792d5f46cf83aaf32b653c2c8681e2af97
+
+# Обязательные поля и типы: text и label нужны модели, source — для разбиения.
+# Остальные поля (severity и др.) модель не использует, поэтому не проверяем.
+columns:
+  text: str
+  label: int
+  source: str
+
+min_rows: 5000
+
+label:
+  column: label
+  allowed: [0, 1]
+  positive: 1
+  positive_share: [0.50, 0.70]   # сейчас 0.595
