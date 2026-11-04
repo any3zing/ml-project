@@ -7,6 +7,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 WORKDIR /app
+# CVE-2026-13221, CVE-2026-42496, CVE-2026-8376 (CRITICAL, найдены Trivy):
+# в базовом образе perl-base 5.40.1-6, исправление — 5.40.1-6+deb13u1.
+# Обновляем только этот пакет; убрать нельзя (Essential в Debian).
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends --only-upgrade perl-base \
+ && rm -rf /var/lib/apt/lists/*
 
 # Только runtime-зависимости
 COPY requirements-runtime.txt .
