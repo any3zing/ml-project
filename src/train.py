@@ -2,7 +2,7 @@
 
 from time import perf_counter
 
-from sklearn.linear_model import LogisticRegression
+from sklearn.dummy import DummyClassifier
 from sklearn.pipeline import Pipeline
 
 from src.preprocess import make_vectorizer
@@ -18,7 +18,7 @@ def build_pipeline(seed=42, **vectorizer_overrides):
     """Собирает необученный Pipeline: TF-IDF + логистическая регрессия."""
     return Pipeline([
         ("tfidf", make_vectorizer(**vectorizer_overrides)),
-        ("classifier", LogisticRegression(**CLASSIFIER_PARAMS, random_state=seed)),
+        ("classifier", DummyClassifier(strategy="most_frequent")),
     ])
 
 
