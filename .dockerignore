@@ -1,0 +1,8 @@
+# Исключаем всё: .git/, .venv/, .env*, data/, notebooks/, reports/, кэши и т.д.
+*
+
+# Явно разрешаем только то, что нужно образу
+!requirements-runtime.txt
+!src/*.py
+!models/candidate.joblib
+!models/candidate.joblib.sha256
