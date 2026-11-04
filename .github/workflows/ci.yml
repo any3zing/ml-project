@@ -76,10 +76,9 @@ jobs:
       # 6. Data gate
       - name: Data quality gate
         run: |
-           # ДЕМО: копия данных с недопустимым label=2; исходный data/dataset.csv не меняется
+          # ДЕМО: копия данных с недопустимым label=2; исходный data/dataset.csv не меняется
           python -c "import pandas as pd; d=pd.read_csv('data/dataset.csv'); d.loc[0,'label']=2; d.to_csv('/tmp/broken.csv', index=False)"
           python -m src.data_gate /tmp/broken.csv
-
 
       # 7. Оценка модели и model gate
       - name: Обучение и оценка кандидата
