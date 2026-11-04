@@ -1,0 +1,155 @@
+# CI ЛР3: проверки кода, данных, модели и Docker-образа.
+name: ci
+
+on:
+  push:
+  pull_request:   # не pull_request_target: код из чужих PR не получает секретов и прав записи
+
+# Минимальные права встроенного токена: только чтение кода. Других секретов в проекте нет.
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash   # bash -eo pipefail: любая ошибка, в том числе внутри "| tee", останавливает шаг
+
+env:
+  PYTHON_VERSION: "3.14.4"
+  RUFF_VERSION: "0.17.3"
+  PIP_AUDIT_VERSION: "2.10.1"
+  TRIVY_VERSION: "0.76.1"
+  BASELINE_URL: https://github.com/any3zing/ml-project/releases/download/lab2/baseline.joblib
+  IMAGE: ml-project:lab3
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      # 1. Код и проверенные артефакты
+      - name: Получение кода
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Модель baseline ЛР2 с проверкой SHA256
+        timeout-minutes: 5
+        run: |
+          mkdir -p models reports
+          expected=$(python -c "import json; print(json.load(open('metrics/baseline.json'))['artifact']['sha256'])")
+          curl -fsSL --retry 3 -o models/baseline.joblib "$BASELINE_URL"
+          echo "$expected  models/baseline.joblib" | sha256sum --check
+
+      # 2. Зависимости
+      - name: Установка зависимостей
+        timeout-minutes: 10
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pip install "ruff==$RUFF_VERSION" "pip-audit==$PIP_AUDIT_VERSION"
+
+      - name: Данные с проверкой SHA256
+        timeout-minutes: 5
+        run: python -m src.data fetch
+
+      # 3. Lint и Bandit (при ошибке: JSON-отчёт плюс читаемый вывод в лог)
+      - name: Ruff
+        run: ruff check src/ tests/ --output-format json -o reports/ruff.json || (ruff check src/ tests/; exit 1)
+
+      - name: Bandit
+        run: python -m bandit -r src/ -f json -o reports/bandit.json || (python -m bandit -r src/; exit 1)
+
+      # 4. Тесты
+      - name: Тесты
+        timeout-minutes: 10
+        run: python -m pytest -q --junitxml=reports/pytest.xml
+
+      # 5. Аудит зависимостей: строгая политика, любая находка -> отказ
+      - name: pip-audit
+        timeout-minutes: 15
+        run: pip-audit -r requirements.txt -f json -o reports/pip-audit.json || (pip-audit -r requirements.txt; exit 1)
+
+      # 6. Data gate
+      - name: Data quality gate
+        run: python -m src.data_gate
+
+      # 7. Оценка модели и model gate
+      - name: Обучение и оценка кандидата
+        timeout-minutes: 10
+        run: python -m src.evaluate
+
+      - name: Model quality gate
+        run: python -m src.model_gate
+
+      # 8. Сборка образа и проверка пользователя
+      - name: Сборка образа
+        timeout-minutes: 10
+        run: docker build -t "$IMAGE" .
+
+      - name: Контейнер не от root
+        run: |
+          uid=$(docker run --rm --entrypoint id "$IMAGE" -u)
+          echo "UID в контейнере: $uid" | tee reports/container-uid.txt
+          test "$uid" != "0"
+
+      # 9. Сканирование и smoke-проверка
+      - name: Установка Trivy (официальный релиз, проверка checksum)
+        timeout-minutes: 5
+        run: |
+          cd "$RUNNER_TEMP"
+          base=https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}
+          curl -fsSLO "$base/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          curl -fsSLO "$base/trivy_${TRIVY_VERSION}_checksums.txt"
+          sha256sum --check --ignore-missing "trivy_${TRIVY_VERSION}_checksums.txt"
+          tar -xzf "trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" trivy
+          sudo install -m 0755 trivy /usr/local/bin/trivy
+
+      - name: Trivy image (CRITICAL -> отказ)
+        timeout-minutes: 10
+        run: |
+          status=0
+          trivy image --severity CRITICAL --exit-code 1 --format json -o reports/trivy-image.json "$IMAGE" || status=$?
+          if [ -f reports/trivy-image.json ]; then trivy convert --format table reports/trivy-image.json; fi
+          exit $status
+
+      - name: Trivy config (Dockerfile)
+        run: |
+          status=0
+          trivy config --exit-code 1 --format json -o reports/trivy-config.json Dockerfile || status=$?
+          if [ -f reports/trivy-config.json ]; then trivy convert --format table reports/trivy-config.json; fi
+          exit $status
+
+      - name: Smoke-проверка контейнера
+        run: |
+          docker run --rm --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --network none "$IMAGE" | tee reports/smoke.txt
+
+      # 10. Отчёты: сохраняются и при сбое, статус pipeline при этом остаётся failed
+      - name: Сведения о запуске
+        if: always()
+        run: |
+          {
+            echo "commit: $GITHUB_SHA"
+            echo "ref: $GITHUB_REF"
+            echo "run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo "date_utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            if [ -f models/candidate.joblib.sha256 ]; then
+              echo "model_sha256: $(cut -d' ' -f1 models/candidate.joblib.sha256)"
+            fi
+            if command -v trivy >/dev/null; then trivy --version; fi
+          } | tee reports/run-info.txt
+
+      - name: Сохранение отчётов
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: reports-${{ github.sha }}
+          path: |
+            reports/
+            models/candidate.joblib.sha256
+          retention-days: 30
+          if-no-files-found: warn
