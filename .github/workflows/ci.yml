@@ -73,6 +73,11 @@ jobs:
         timeout-minutes: 15
         run: pip-audit -r requirements.txt -f json -o reports/pip-audit.json || (pip-audit -r requirements.txt; exit 1)
 
+      # Отдельно — зависимости образа (модель + API): именно они работают в сервисе
+      - name: pip-audit (runtime)
+        timeout-minutes: 10
+        run: pip-audit -r requirements-runtime.txt -f json -o reports/pip-audit-runtime.json || (pip-audit -r requirements-runtime.txt; exit 1)
+
       # 6. Data gate
       - name: Data quality gate
         run: python -m src.data_gate
