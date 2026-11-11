@@ -1,8 +1,32 @@
-# Только то, что нужно образу для загрузки модели и предсказания.
+# Только то, что нужно образу: загрузка модели, предсказание и API.
 # Версии совпадают с requirements.txt.
+
+# Модель
 scikit-learn==1.9.1
 numpy==2.5.4
 scipy==1.18.1
 joblib==1.6.0
 threadpoolctl==3.7.0
+cloudpickle==3.1.2   # зависимость scikit-learn 1.9
+narwhals==2.28.0     # зависимость scikit-learn 1.9
 
+# API (ЛР4): FastAPI и его зависимости
+fastapi==0.162.4
+starlette==1.10.0
+pydantic==2.14.3
+pydantic_core==2.50.4
+annotated-types==0.8.0
+annotated-doc==0.0.6
+typing-inspection==0.4.5
+typing_extensions==4.16.0
+opentelemetry-api==1.45.2
+anyio==4.15.1
+idna==3.20
+
+# Сервер ASGI (без [standard]: без uvloop/httptools/watchfiles)
+uvicorn==0.54.0
+click==8.5.0
+h11==0.16.0
+
+# Метрики Prometheus
+prometheus_client==0.26.0
