@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Проверка текста на prompt injection</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <h1>Проверка текста на prompt injection</h1>
+    <p class="hint">
+      Классификатор ЛР2 (TF-IDF + логистическая регрессия). Ответ — класс
+      benign или malicious; вероятность не выводится.
+    </p>
+
+    <!-- у полей нет name: даже без JS форма не отправит токен в URL -->
+    <form id="predict-form" novalidate autocomplete="off">
+      <label for="token">API-токен</label>
+      <div class="row">
+        <input id="token" type="password" autocomplete="off"
+               spellcheck="false" placeholder="Bearer-токен сервиса">
+        <button type="button" id="forget-token" class="secondary">Очистить</button>
+      </div>
+
+      <label for="text">Текст</label>
+      <textarea id="text" rows="8" maxlength="10000"
+                placeholder="Введите текст запроса к ИИ-агенту"></textarea>
+      <div class="meta">
+        <span id="counter">0 / 10000</span>
+        <span>Ограничения проверяет сервер</span>
+      </div>
+
+      <button type="submit" id="submit">Проверить</button>
+    </form>
+
+    <section id="status" class="status" role="status" aria-live="polite" hidden></section>
+
+    <section id="result" class="result" hidden>
+      <h2>Результат</h2>
+      <dl>
+        <dt>Класс</dt>         <dd id="r-prediction"></dd>
+        <dt>label</dt>         <dd id="r-label"></dd>
+        <dt>Версия модели</dt> <dd id="r-version"></dd>
+        <dt>request_id</dt>    <dd id="r-request-id" class="mono"></dd>
+      </dl>
+      <details>
+        <summary>Ответ JSON</summary>
+        <pre id="r-json"></pre>
+      </details>
+    </section>
+  </main>
+</body>
+</html>
+
