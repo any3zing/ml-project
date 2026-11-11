@@ -1,4 +1,4 @@
-# CI ЛР3: проверки кода, данных, модели и Docker-образа.
+# CI ЛР4: проверки кода, данных, модели и Docker-образа.
 name: ci
 
 on:
@@ -19,7 +19,7 @@ env:
   PIP_AUDIT_VERSION: "2.10.1"
   TRIVY_VERSION: "0.76.1"
   BASELINE_URL: https://github.com/any3zing/ml-project/releases/download/lab2/baseline.joblib
-  IMAGE: ml-project:lab3
+  IMAGE: ml-project:lab4
 
 jobs:
   pipeline:
@@ -58,7 +58,7 @@ jobs:
 
       # 3. Lint и Bandit (при ошибке: JSON-отчёт плюс читаемый вывод в лог)
       - name: Ruff
-        run: ruff check src/ tests/ --output-format json -o reports/ruff.json || (ruff check src/ tests/; exit 1)
+        run: ruff check src/ tests/ scripts/ --output-format json -o reports/ruff.json || (ruff check src/ tests / scripts/; exit 1)
 
       - name: Bandit
         run: python -m bandit -r src/ -f json -o reports/bandit.json || (python -m bandit -r src/; exit 1)
@@ -128,12 +128,69 @@ jobs:
           if [ -f reports/trivy-config.json ]; then trivy convert --format table reports/trivy-config.json; fi
           exit $status
 
-      - name: Smoke-проверка контейнера
+      # 10. API-контейнер: токены на один прогон, тестовые лимиты
+      - name: Токены для контейнера
         run: |
-          docker run --rm --read-only --cap-drop ALL \
-            --security-opt no-new-privileges --network none "$IMAGE" | tee reports/smoke.txt
+          umask 077
+          for name in api_token metrics_token; do
+            python -c "import secrets; print(secrets.token_urlsafe(32))" > "$RUNNER_TEMP/$name"
+            echo "::add-mask::$(cat "$RUNNER_TEMP/$name")"
+          done
+          {
+            echo "API_TOKEN=$(cat "$RUNNER_TEMP/api_token")"
+            echo "METRICS_TOKEN=$(cat "$RUNNER_TEMP/metrics_token")"
+            echo "RATE_WINDOW=10"
+            echo "AUTH_FAIL_LIMIT=5"
+            echo "AUTH_FAIL_WINDOW=10"
+          } > "$RUNNER_TEMP/api.env"
 
-      # 10. Отчёты: сохраняются и при сбое, статус pipeline при этом остаётся failed
+      - name: Запуск API-контейнера
+        run: |
+          docker run -d --name ml-api -p 127.0.0.1:8000:8000 \
+            --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges \
+            --memory 512m --cpus 1 --pids-limit 128 \
+            --env-file "$RUNNER_TEMP/api.env" "$IMAGE"
+          for i in $(seq 30); do
+            curl -fsS http://127.0.0.1:8000/health >/dev/null && exit 0
+            sleep 1
+          done
+          docker logs ml-api; exit 1
+
+      - name: Smoke API-контейнера
+        run: |
+          curl -fsS http://127.0.0.1:8000/health | tee reports/container-health.json; echo
+          for i in $(seq 30); do
+            status=$(docker inspect -f '{{.State.Health.Status}}' ml-api)
+            [ "$status" = healthy ] && break
+            sleep 1
+          done
+          user=$(docker inspect -f '{{.Config.User}}' ml-api)
+          uid=$(docker exec ml-api id -u)
+          echo "HEALTHCHECK=$status Config.User=$user id -u=$uid" | tee reports/container-runtime.txt
+          test "$status" = healthy
+          test "$uid" != "0"
+
+      - name: API-проверки против контейнера
+        run: API_TOKEN_FILE="$RUNNER_TEMP/api_token" scripts/api_checks.sh | tee reports/api_checks.txt
+
+      - name: Сценарий обнаружения
+        run: |
+          docker restart ml-api   # сброс счётчиков лимитов после api_checks
+          for i in $(seq 30); do
+            curl -fsS http://127.0.0.1:8000/health >/dev/null && break
+            sleep 1
+          done
+          API_TOKEN_FILE="$RUNNER_TEMP/api_token" METRICS_TOKEN_FILE="$RUNNER_TEMP/metrics_token" \
+            mkdir -p reports/detection
+            python scripts/detection_scenario.py --out reports/detection | tee reports/detection/scenario.txt
+
+      - name: Логи и остановка контейнера
+        if: always()
+        run: |
+          docker logs ml-api > reports/container.log 2>&1 || true
+          docker rm -f ml-api || true
+
+      # 11. Отчёты: сохраняются и при сбое, статус pipeline при этом остаётся failed
       - name: Сведения о запуске
         if: always()
         run: |
@@ -143,8 +200,10 @@ jobs:
             echo "run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
             echo "date_utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
             if [ -f models/candidate.joblib.sha256 ]; then
-              echo "model_sha256: $(cut -d' ' -f1 models/candidate.joblib.sha256)"
-            fi
+               echo "model_sha256: $(cut -d' ' -f1 models/candidate.joblib.sha256)"
+            echo "image_model_sha256: $(sha256sum models/baseline.joblib | cut -d' ' -f1)"
+            echo "image: $IMAGE"
+
             if command -v trivy >/dev/null; then trivy --version; fi
           } | tee reports/run-info.txt
 

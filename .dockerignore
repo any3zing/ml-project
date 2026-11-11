@@ -4,5 +4,7 @@
 # Явно разрешаем только то, что нужно образу
 !requirements-runtime.txt
 !src/*.py
-!models/candidate.joblib
-!models/candidate.joblib.sha256
+!src/api/*.py
+!static/*
+!metrics/baseline.json
+!models/baseline.joblib
