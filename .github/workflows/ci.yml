@@ -180,10 +180,10 @@ jobs:
             curl -fsS http://127.0.0.1:8000/health >/dev/null && break
             sleep 1
           done
-          API_TOKEN_FILE="$RUNNER_TEMP/api_token" METRICS_TOKEN_FILE="$RUNNER_TEMP/metrics_token" \
-            mkdir -p reports/detection
-            python scripts/detection_scenario.py --out reports/detection | tee reports/detection/scenario.txt
-
+          mkdir -p reports/detection
+          export API_TOKEN_FILE="$RUNNER_TEMP/api_token"
+          export METRICS_TOKEN_FILE="$RUNNER_TEMP/metrics_token"
+          python scripts/detection_scenario.py --out reports/detection | tee reports/detection/scenario.txt
       - name: Логи и остановка контейнера
         if: always()
         run: |
@@ -200,12 +200,13 @@ jobs:
             echo "run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
             echo "date_utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
             if [ -f models/candidate.joblib.sha256 ]; then
-               echo "model_sha256: $(cut -d' ' -f1 models/candidate.joblib.sha256)"
+              echo "model_sha256: $(cut -d' ' -f1 models/candidate.joblib.sha256)"
+            fi
             echo "image_model_sha256: $(sha256sum models/baseline.joblib | cut -d' ' -f1)"
             echo "image: $IMAGE"
-
             if command -v trivy >/dev/null; then trivy --version; fi
           } | tee reports/run-info.txt
+
 
       - name: Сохранение отчётов
         if: always()
